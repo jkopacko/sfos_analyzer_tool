@@ -494,3 +494,53 @@ Where-Object {$_.HTTPBasedPolicy.IntrusionPrevention -Eq "None"} |
 Select-Object -Property Name, Status,
 @{label="IPS";expression={$($_.HTTPBasedPolicy.IntrusionPrevention)}}
 WriteHTTPReport $HTTPProtectionResults
+
+#########
+# SFOS
+# ADMINISTRATIVE
+# SETTINGS
+#########
+
+### METHOD TO WRITE WAN NETWORK RESULTS FILE FUNCTION ###
+$AdminSettings= "C:\SFOS_Analyzer\AdminSettingsResults.txt"
+function WriteAdminReport ($results)
+{
+($results | Format-List | Out-String) | Out-File -Filepath $AdminSettings -Append
+}
+
+### METHOD TO WRITE WAN NETWORK RESULTS SECTION BREAKS ###
+function WriteAdminHeader ($text)
+{
+$text | Out-File -FilePath $AdminSettings -Append
+}
+
+###### CHECK ADMIN LOGGING SETTINGS #####
+WriteAdminHeader "--YOUR SFOS HAS MISCONFIGURED LOGIN SETTINGS--"
+$AdminLoginSettings = $Config.Configuration.AdminSettings | 
+Where-Object {$_.LoginSecurity.BlockLogin -Eq "Disable" -OR $_.PasswordComplexitySettings.PasswordComplexityCheck -Eq "Disable" -OR $_.PasswordComplexitySettings.PasswordComplexity.MinimumPasswordLengthValue -lt 12} | 
+Select-Object @{label="BlockLogin";expression={$($_.LoginSecurity.BlockLogin)}},
+@{label="FailedAttempts";expression={$($_.LoginSecurity.BlockLoginSettings.UnsucccessfulAttempt)}},
+@{label="Interval(seconds)";expression={$($_.LoginSecurity.BlockLoginSettings.Duration)}},
+@{label="ForMinutes";expression={$($_.LoginSecurity.BlockLoginSettings.ForMinutes)}},
+@{label="PasswordComplexity";expression={$($_.PasswordComplexitySettings.PasswordComplexityCheck)}},
+@{label="RequiredLength";expression={$($_.PasswordComplexitySettings.PasswordComplexity.MinimumPasswordLength)}},
+@{label="AlphaChars";expression={$($_.PasswordComplexitySettings.PasswordComplexity.IncludeAlphabeticCharacters)}},
+@{label="NumericChars";expression={$($_.PasswordComplexitySettings.PasswordComplexity.IncludeNumericCharacter)}},
+@{label="SpecialChars";expression={$($_.PasswordComplexitySettings.PasswordComplexity.IncludeSpecialCharacter)}},
+@{label="MinimumLength";expression={$($_.PasswordComplexitySettings.PasswordComplexity.MinimumPasswordLengthValue)}}
+WriteAdminReport $AdminLoginSettings
+
+##### CHECK HOTFIX #####
+WriteAdminHeader "--YOUR SFOS IS NOT ALLOWING HOTFIXES--"
+$HotfixSetting = $Config.Configuration.Hotfix | 
+Where-Object {$_.AllowAutoInstallOfHotFixes -Eq "Disable"} |
+Select-Object @{label="AllowHotFix";expression={$($_.AllowAutoInstallOfHotFixes)}}
+WriteAdminReport $HotfixSetting
+
+##### CHECK CENTRAL MANAGEMENT #####
+WriteAdminHeader "--YOUR SFOS IS NOT MANAGED BY SOPHOS CENTRAL--"
+$CentralManagement = $Config.Configuration.CentralManagement |
+Where-Object {$_.ManagementType -Ne "central"} |
+Select-Object @{label="ManagementType";expression={$($_.ManagementType)}}
+WriteAdminReport $CentralManagement
+
