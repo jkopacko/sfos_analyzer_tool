@@ -1,98 +1,86 @@
 #### READ EXPORTED XML FROM SFOS v18 ####
 [xml]$Config = Get-Content "C:\SFOS_Analyzer\Entities.xml"
 
-###### CHECK ADMIN SETTINGS.--- NEEDS FINISHED
-$AdminLoginSettings = $Config.Configuration.AdminSettings
-Where-Object {$_BlockLogin -eq } | Select-Object -Property,
-@{label="BlockLogin";expression={$($_.LoginSecurity.BlockLogin)}},
-@{label="FailedAttempts";expression={$($_.LoginSecurity.BlockLogin.BlockLoginSettings.UnsuccessfulAttempts)}},
-@{label="Interval(seconds)";expression={$($_.LoginSecurity.BlockLogin.BlockLoginSettings.Duration)}},
-@{label="ForMinutes";expression={$($_.LoginSecurity.BlockLogin.BlockLoginSettings.ForMinutes}},
-@{label="PasswordComplexity";expression={$($_.PasswordComplexitySettings.PasswordComplexityCheck)}},
-@{label="RequiredLength";expression={$($_.PasswordComplexitySettings.PasswordComplexity.MinimumPasswordLength)}},
-@{label="AlphaChars";expression={$($_.PasswordComplexitySettings.PasswordComplexity.IncludeAlphabeticCharacters)}},
-@{label="NumericChars";expression={$($_.PasswordComplexitySettings.PasswordComplexity.IncludeNumericCharacter)}},
-@{label="SpecialChars";expression={$($_.PasswordComplexitySettings.PasswordComplexity.IncludeSpecialCharacter)}},
-@{label="MinimumLength";expression={$($_.PasswordComplexitySettings.PasswordComplexity.MinimumPasswordLengthValue)}}
+#########
+# WAN
+# NETWORK 
+# RULE 
+# TYPE 
+#########
 
-##### CHECK HOTFIX -- NEEDS FINISHED
-$HotfixSetting = $Config.Configuration.Hotfix | Select-Object -Property
-@{label="AllowHotFix";expression={$($_.AllowAutoInstallOfHotFixes)}}
-
-##### CHECK CENTRAL MANAGEMENT -- NEEDS FINISHED
-
-##### CHECK AUTHENTICATION SERVERS -- NEEDS FINISHED
-$AuthenticationSettings = $Config.Configuration.AuthenticationServer.ActiveDirectory | Select-Object -Property
-@{label="Port";expression={$($_.Port)}}
-
-###### NETWORK RULE TYPE ######
-
-### WRITE TO NETWORK RESULTS FILE FUNCTION
-$NetworkAnalyzerResults= "C:\SFOS_Analyzer\NetworkRuleResults.txt"
-function WriteNetworkReport ($message)
+### METHOD TO WRITE WAN NETWORK RESULTS FILE FUNCTION ###
+$WANAnalyzerResults= "C:\SFOS_Analyzer\WANRuleResults.txt"
+function WriteNetworkReport ($results)
 {
-$message >> $NetworkAnalyzerResults
+($results | Format-List | Out-String) | Out-File -Filepath $WANAnalyzerResults -Append
 }
 
-### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN MISSING LOGGING
+### METHOD TO WRITE WAN NETWORK RESULTS SECTION BREAKS ###
+function WriteSectionHeader ($text)
+{
+$text | Out-File -FilePath $NetworkAnalyzerResults -Append
+}
+
+### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN MISSING LOGGING ###
+WriteSectionHeader "--THE FOLLOWING RULES ARE NOT LOGGING--"
 $NetworkRulesNotLogged = $Config.Configuration.FirewallRule |
 Where-Object {$_.NetworkPolicy.LogTraffic -Eq "Disable" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="LoggingStatus";expression={$($_.NetworkPolicy.LogTraffic)}}
-WriteNetworkReport "Not Logging On" $NetworkRulesNotLogged  
+WriteNetworkReport $NetworkRulesNotLogged  
 
-### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN NOT FILTERING PORTS
-WriteNetworkReport "Not Filtering Ports On"
+### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN NOT FILTERING PORTS ####
+WriteSectionHeader "--THE FOLLOWING RULES ARE NOT FILTERING PORTS--"
 $NetworkRulesNoPortFilter = $Config.Configuration.FirewallRule |
-Where-Object {$_.NetworkPolicy.Services -Eq " " -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "WAN"} |
+Where-Object {$_.NetworkPolicy.Services -Eq $null -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="Services";expression={$($_.NetworkPolicy.Services)}}
 WriteNetworkReport $NetworkRulesNoPortFilter
 
-### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN NOT INSPECTING TRAFFIC
-WriteNetworkReport "Not Inspecting Traffic On"
+### -- Needs Tweaked -- ###
+### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN NOT INSPECTING TRAFFIC ###
+WriteSectionHeader "--THE FOLLOWING RULES ARE NOT INSPECTING TRAFFIC--"
 $NetworkRulesNotInspected = $Config.Configuration.FirewallRule |
 Where-Object {($_.NetworkPolicy.ScanVirus -Eq "Disable" -OR $_.NetworkPolicy.ProxyMode -Eq "Disable" -OR $_.NetworkPolicy.DecryptHTTPS -Eq "Disable") -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="GoogleQuic";expression={$($_.NetworkPolicy.BlockQuickQuic)}},
 @{label="DPI";expression={$($_.NetworkPolicy.ScanVirus)}},
-@{label="Sandstorm";expression={$($_.NetworkPolicy.Sandstorm)}},
 @{label="Proxy";expression={$($_.NetworkPolicy.ProxyMode)}},
 @{label="Decrypt";expression={$($_.NetworkPolicy.DecryptHTTPS)}}
 WriteNetworkReport $NetworkRulesNotInspected
 
-### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN NOT USING SANDSTORM
-WriteNetworkReport "Not Using Sandstorm On"
+### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN NOT USING SANDSTORM ###
+WriteSectionHeader "--THE FOLLOWING RULES ARE NOT USING SANDSTORM--"
 $NetworkRulesNoSandstorm = $Config.Configuration.FirewallRule |
-Where-Object {$_.NetworkPolicy.Sandstorm -Eq "Disable" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "WAN"} |
+Where-Object {($_.NetworkPolicy.Sandstorm -Eq "Disable" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "WAN")} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="Sandstorm";expression={$($_.NetworkPolicy.Sandstorm)}}
 WriteNetworkReport $NetworkRulesNoSandstorm
 
-### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN NOT USING APPLICATION CONTROL
-WriteNetworkReport "Not Using App Control On"
+### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN NOT USING APPLICATION CONTROL ###
+WriteSectionHeader "--THE FOLLOWING RULES ARE NOT USING APP CONTROL--"
 $NetworkRulesNoAppC = $Config.Configuration.FirewallRule |
-Where-Object {$_.NetworkPolicy.Application -Eq "Disable" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "WAN"} |
+Where-Object {$_.NetworkPolicy.ApplicationControl -Eq "None" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="AppControl";expression={$($_.NetworkPolicy.ApplicationControl)}}
 WriteNetworkReport $NetworkRulesNoAppC
 
-### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN NOT USING IPS
-WriteNetworkReport "Not Using IPS On"
+### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN NOT USING IPS ###
+WriteSectionHeader "--THE FOLLOWING RULES ARE NOT USING IPS--"
 $NetworkRulesNoIPS = $Config.Configuration.FirewallRule |
-Where-Object {$_.NetworkPolicy.IntrusionPrevention -Eq "Disable" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "WAN"} |
+Where-Object {$_.NetworkPolicy.IntrusionPrevention -Eq "None" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="IPS";expression={$($_.NetworkPolicy.IntrusionPrevention)}}
 WriteNetworkReport $NetworkRulesNoIPS
 
-### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN NOT USING SYNC SEC
-WriteNetworkReport "Not Using Sync Sec"
+### ANALYZE NETWORK TRAFFIC DESTINED FOR WAN NOT USING SYNC SEC ###
+WriteSectionHeader "--THE FOLLOWING RULES ARE NOT USING SYNC SEC--"
 $NetworkRulesNoSyncSec = $Config.Configuration.FirewallRule |
 Where-Object {$_.NetworkPolicy.SourceSecurityHeartbeat -Eq "Disable" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
@@ -101,44 +89,64 @@ Select-Object -Property Name, Status,
 @{label="SourceHB_Perm";expression={$($_.NetworkPolicy.MinimumSourceHBPermitted)}}
 WriteNetworkReport $NetworkRulesNoSyncSec
 
-### ANALYZE NETWORK TRAFFIC DESTINED FOR DMZ MISSING LOGGING
-WriteNetworkReport "Not Logging On"
+#########
+# DMZ
+# NETWORK 
+# RULE 
+# TYPE 
+#########
+
+### METHOD TO WRITE DMZ NETWORK RESULTS FILE FUNCTION ###
+$DMZAnalyzerResults= "C:\SFOS_Analyzer\DMZRuleResults.txt"
+function WriteDMZReport ($results)
+{
+($results | Format-List | Out-String) | Out-File -Filepath $DMZAnalyzerResults -Append
+}
+
+### METHOD TO WRITE DMZ NETWORK RESULTS SECTION BREAKS ###
+function WriteDMZSectionHeader ($text)
+{
+$text | Out-File -FilePath $DMZAnalyzerResults -Append
+}
+
+### ANALYZE NETWORK TRAFFIC DESTINED FOR DMZ MISSING LOGGING ###
+WriteDMZSectionHeader "--THE FOLLOWING RULES ARE NOT LOGGING--"
 $NetworkRulesNotLoggedDMZ = $Config.Configuration.FirewallRule |
 Where-Object {$_.NetworkPolicy.LogTraffic -Eq "Disable" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "DMZ"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="LoggingStatus";expression={$($_.NetworkPolicy.LogTraffic)}}
-WriteNetworkReport $NetworkRulesNotLoggedDMZ
+WriteDMZReport $NetworkRulesNotLoggedDMZ
 
-### ANALYZE NETWORK TRAFFIC DESTINED FOR DMZ NOT FILTERING PORTS
-WriteNetworkReport "Not Filtering Ports On"
+### ANALYZE NETWORK TRAFFIC DESTINED FOR DMZ NOT FILTERING PORTS ###
+WriteDMZSectionHeader "--THE FOLLOWING RULES ARE NOT FILTERING PORTS--"
 $NetworkRulesNoPortFilterDMZ = $Config.Configuration.FirewallRule |
-Where-Object {$_.NetworkPolicy.Services -Eq " " -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "DMZ"} |
+Where-Object {$_.NetworkPolicy.Services -Eq $null -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "DMZ"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="Services";expression={$($_.NetworkPolicy.Services)}}
-WriteNetworkReport $NetworkRulesNoPortFilterDMZ
+WriteDMZReport $NetworkRulesNoPortFilterDMZ
 
-### ANALYZE NETWORK TRAFFIC DESTINED FOR DMZ NOT USING APPLICATION CONTROL
-WriteNetworkReport "Not Using App Control On"
+### ANALYZE NETWORK TRAFFIC DESTINED FOR DMZ NOT USING APPLICATION CONTROL ###
+WriteDMZSectionHeader "--THE FOLLOWING RULES ARE NOT USING APP CONTROL--"
 $NetworkRulesNoAppCDMZ = $Config.Configuration.FirewallRule |
-Where-Object {$_.NetworkPolicy.Application -Eq "Disable" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "DMZ"} |
+Where-Object {$_.NetworkPolicy.Application -Eq "None" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "DMZ"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="AppControl";expression={$($_.NetworkPolicy.ApplicationControl)}}
-WriteNetworkReport $NetworkRulesNoAppCDMZ
+WriteDMZReport $NetworkRulesNoAppCDMZ
 
-## ANALYZE NETWORK TRAFFIC DESTINED FOR DMZ NOT USING IPS
-WriteNetworkReport "Not Using IPS On"
+## ANALYZE NETWORK TRAFFIC DESTINED FOR DMZ NOT USING IPS ###
+WriteDMZSectionHeader "--THE FOLLOWING RULES ARE NOT USING IPS--"
 $NetworkRulesNoIPSDMZ = $Config.Configuration.FirewallRule |
-Where-Object {$_.NetworkPolicy.IntrusionPrevention -Eq "Disable" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "DMZ"} |
+Where-Object {$_.NetworkPolicy.IntrusionPrevention -Eq "None" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "DMZ"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="IPS";expression={$($_.NetworkPolicy.IntrusionPrevention)}}
-WriteNetworkReport $NetworkRulesNoIPSDMZ
+WriteDMZReport $NetworkRulesNoIPSDMZ
 
-### ANALYZE NETWORK TRAFFIC DESTINED FOR DMZ NOT USING SYNC SEC
-WriteNetworkReport "Not Using Sync Sec"
+### ANALYZE NETWORK TRAFFIC DESTINED FOR DMZ NOT USING SYNC SEC ###
+WriteDMZSectionHeader "--THE FOLLOWING RULES ARE NOT USING SYNC SEC--"
 $NetworkRulesNoSyncSecDMZ = $Config.Configuration.FirewallRule |
 Where-Object {($_.NetworkPolicy.SourceSecurityHeartbeat -Eq "Disable" -OR $_.NetworkPolicy.DestSecurityHeartbeat) -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "DMZ"} |
 Select-Object -Property Name, Status,
@@ -147,46 +155,66 @@ Select-Object -Property Name, Status,
 @{label="SourceHB_Perm";expression={$($_.NetworkPolicy.MinimumSourceHBPermitted)}},
 @{label="DestHB";expression={$($_.NetworkPolicy.DestSecurityHeartbeat)}},
 @{label="DestHB_Perm";expression={$($_.NetworkPolicy.MinimumDestinationHBPermitted)}} 
-WriteNetworkReport $NetworkRulesNoSyncSecDMZ
+WriteDMZReport $NetworkRulesNoSyncSecDMZ
+
+#########
+# LAN
+# NETWORK 
+# RULE 
+# TYPE 
+#########
+
+### METHOD TO WRITE LAN NETWORK RESULTS FILE FUNCTION ###
+$LANAnalyzerResults= "C:\SFOS_Analyzer\LANRuleResults.txt"
+function WriteLANReport ($results)
+{
+($results | Format-List | Out-String) | Out-File -Filepath $LANAnalyzerResults -Append
+}
+
+### METHOD TO WRITE LAN NETWORK RESULTS SECTION BREAKS ###
+function WriteLANSectionHeader ($text)
+{
+$text | Out-File -FilePath $LANAnalyzerResults -Append
+}
 
 ### ANALYZE NETWORK TRAFFIC DESTINED FOR LAN MISSING LOGGING
-WriteNetworkReport "Not Logging On"
+WriteLANSectionHeader "--THE FOLLOWING RULES ARE NOT LOGGING--"
 $NetworkRulesNotLoggedLAN = $Config.Configuration.FirewallRule |
 Where-Object {$_.NetworkPolicy.LogTraffic -Eq "Disable" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "LAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="LoggingStatus";expression={$($_.NetworkPolicy.LogTraffic)}}
-WriteNetworkReport $NetworkRulesNotLoggedLAN
+WriteLANReport $NetworkRulesNotLoggedLAN
 
 ### ANALYZE NETWORK TRAFFIC DESTINED FOR LAN NOT FILTERING PORTS
-WriteNetworkReport "Not Filtering Ports On"
+WriteLANSectionHeader "--THE FOLLOWING RULES ARE NOT FILTERING PORTS--"
 $NetworkRulesNoPortFilterLAN = $Config.Configuration.FirewallRule |
-Where-Object {$_.NetworkPolicy.Services -Eq " " -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "LAN"} |
+Where-Object {$_.NetworkPolicy.Services -Eq $null -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "LAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="Services";expression={$($_.NetworkPolicy.Services)}}
-WriteNetworkReport $NetworkRulesNoPortFilterLAN
+WriteLANReport $NetworkRulesNoPortFilterLAN
 
 ### ANALYZE NETWORK TRAFFIC DESTINED FOR LAN NOT USING APPLICATION CONTROL
-WriteNetworkReport "Not Using App Control On"
+WriteLANSectionHeader "--THE FOLLOWING RULES ARE NOT USING APP CONTROL--"
 $NetworkRulesNoAppCLAN = $Config.Configuration.FirewallRule |
-Where-Object {$_.NetworkPolicy.Application -Eq "Disable" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "LAN"} |
+Where-Object {$_.NetworkPolicy.Application -Eq "None" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "LAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="AppControl";expression={$($_.NetworkPolicy.ApplicationControl)}}
-WriteNetworkReport $NetworkRulesNoAppCLAN
+WriteLANReport $NetworkRulesNoAppCLAN
 
 ## ANALYZE NETWORK TRAFFIC DESTINED FOR LAN NOT USING IPS
-WriteNetworkReport "Not Using IPS On"
+WriteLANSectionHeader "--THE FOLLOWING RULES ARE NOT USING IPS--"
 $NetworkRulesNoIPSLAN = $Config.Configuration.FirewallRule |
-Where-Object {$_.NetworkPolicy.IntrusionPrevention -Eq "Disable" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "LAN"} |
+Where-Object {$_.NetworkPolicy.IntrusionPrevention -Eq "None" -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "LAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.NetworkPolicy.Action)}}, 
 @{label="IPS";expression={$($_.NetworkPolicy.IntrusionPrevention)}}
-WriteNetworkReport $NetworkRulesNoIPSLAN
+WriteLANReport $NetworkRulesNoIPSLAN
 
 ### ANALYZE NETWORK TRAFFIC DESTINED FOR LAN NOT USING SYNC SEC
-WriteNetworkReport "Not Using Sync Sec"
+WriteLANSectionHeader "--THE FOLLOWING RULES ARE NOT USING SYNC SEC--"
 $NetworkRulesNoSyncSecLAN = $Config.Configuration.FirewallRule |
 Where-Object {($_.NetworkPolicy.SourceSecurityHeartbeat -Eq "Disable" -OR $_.NetworkPolicy.DestSecurityHeartbeat) -AND $_.NetworkPolicy.DestinationZones.Zone -Eq "LAN"} |
 Select-Object -Property Name, Status,
@@ -195,123 +223,154 @@ Select-Object -Property Name, Status,
 @{label="SourceHB_Perm";expression={$($_.NetworkPolicy.MinimumSourceHBPermitted)}},
 @{label="DestHB";expression={$($_.NetworkPolicy.DestSecurityHeartbeat)}},
 @{label="DestHB_Perm";expression={$($_.NetworkPolicy.MinimumDestinationHBPermitted)}} 
-WriteNetworkReport $NetworkRulesNoSyncSecLAN
+WriteLANReport $NetworkRulesNoSyncSecLAN
 
-###### USER RULE TYPE ######
+#########
+# WAN 
+# USER
+# RULE 
+# TYPE 
+#########
 
-### WRITE TO USER RESULTS FILE FUNCTION
-$UserAnalyzerResults= "C:\SFOS_Analyzer\UserRuleResults.txt"
-function WriteUserReport ($message)
+### METHOD TO WRITE USER WAN RESULTS FILE FUNCTION ###
+$UserWANAnalyzerResults= "C:\SFOS_Analyzer\UserWANRuleResults.txt"
+function WriteUserWANReport ($results)
 {
-$message >> $UserAnalyzerResults
+($results | Format-List | Out-String) | Out-File -Filepath $UserWANAnalyzerResults -Append
 }
 
-### ANALYZE USER TRAFFIC DESTINED FOR WAN MISSING LOGGING
-WriteNetworkReport "Not Logging On"
+### METHOD TO WRITE USER WAN RESULTS SECTION BREAKS ###
+function WriteUserWANSectionHeader ($text)
+{
+$text | Out-File -FilePath $UserWANAnalyzerResults -Append
+}
+
+### ANALYZE USER TRAFFIC DESTINED FOR WAN MISSING LOGGING ###
+WriteUserWANSectionHeader "--THE FOLLOWING RULES ARE NOT LOGGING--"
 $UserRulesNotLogged = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.LogTraffic -Eq "Disable" -AND $_.UserPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
 @{label="UserPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="LoggingStatus";expression={$($_.UserPolicy.LogTraffic)}}
-WriteUserReport $UserRulesNotLogged  
+WriteUserWANReport $UserRulesNotLogged  
 
-### ANALYZE USER TRAFFIC DESTINED FOR WAN NOT FILTERING PORTS
-WriteNetworkReport "Not Filtering Ports On"
+### ANALYZE USER TRAFFIC DESTINED FOR WAN NOT FILTERING PORTS ###
+WriteUserWANSectionHeader "--THE FOLLOWING RULES ARE NOT FILTERING PORTS-"
 $UserRulesNoPortFilter = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.Services -Eq " " -AND $_.UserPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
 @{label="UserPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="Services";expression={$($_.UserPolicy.Services)}}
-WriteUserReport $UserRulesNoPortFilter
+WriteUserWANReport $UserRulesNoPortFilter
 
-### ANALYZE USER TRAFFIC DESTINED FOR WAN NOT INSPECTING TRAFFIC
-WriteNetworkReport "Not Inspecting Traffic On"
+### -- Needs tweaked to separate DPI v PROXY -- ###
+### ANALYZE USER TRAFFIC DESTINED FOR WAN NOT INSPECTING TRAFFIC ###
+WriteUserWANSectionHeader "--THE FOLLOWING RULES ARE NOT INSPECTING TRAFFIC--"
 $UserRulesNotInspected = $Config.Configuration.FirewallRule |
 Where-Object {($_.UserPolicy.ScanVirus -Eq "Disable" -OR $_.UserPolicy.ProxyMode -Eq "Disable" -OR $_.UserPolicy.DecryptHTTPS -Eq "Disable") -AND $_.UserPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
 @{label="UserPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="GoogleQuic";expression={$($_.UserPolicy.BlockQuickQuic)}},
 @{label="DPI";expression={$($_.UserPolicy.ScanVirus)}},
-@{label="Sandstorm";expression={$($_.UserPolicy.Sandstorm)}},
 @{label="Proxy";expression={$($_.UserPolicy.ProxyMode)}},
 @{label="Decrypt";expression={$($_.UserPolicy.DecryptHTTPS)}}
-WriteUserReport $UserRulesNotInspected
+WriteUserWANReport $UserRulesNotInspected
 
-### ANALYZE USER TRAFFIC DESTINED FOR WAN NOT USING SANDSTORM
-WriteNetworkReport "Not Using Sandstorm On"
+### ANALYZE USER TRAFFIC DESTINED FOR WAN NOT USING SANDSTORM ###
+WriteUserWANSectionHeader "--THE FOLLOWING RULES ARE NOT USING SANDSTORM--"
 $UserRulesNoSandstorm = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.Sandstorm -Eq "Disable" -AND $_.UserPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
 @{label="UserPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="Sandstorm";expression={$($_.UserPolicy.Sandstorm)}}
-WriteUserReport $UserRulesNoSandstorm
+WriteUserWANReport $UserRulesNoSandstorm
 
-### ANALYZE USER TRAFFIC DESTINED FOR WAN NOT USING APPLICATION CONTROL
-WriteNetworkReport "Not Using App Control On"
+### ANALYZE USER TRAFFIC DESTINED FOR WAN NOT USING APPLICATION CONTROL ###
+WriteUserWANSectionHeader "--THE FOLLOWING RULES ARE NOT USING APP CONTROL--"
 $UserRulesNoAppC = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.Application -Eq "Disable" -AND $_.UserPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
 @{label="UserPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="AppControl";expression={$($_.UserPolicy.ApplicationControl)}}
-WriteUserReport $UserRulesNoAppC
+WriteUserWANReport $UserRulesNoAppC
 
-### ANALYZE USER TRAFFIC DESTINED FOR WAN NOT USING IPS
-WriteNetworkReport "Not Using IPS On"
+### ANALYZE USER TRAFFIC DESTINED FOR WAN NOT USING IPS ###
+WriteUserWANSectionHeader "--THE FOLLOWING RULES ARE NOT USING IPS--"
 $UserRulesNoIPS = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.IntrusionPrevention -Eq "Disable" -AND $_.UserPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
 @{label="UserPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="IPS";expression={$($_.UserPolicy.IntrusionPrevention)}}
-WriteUserReport $UserRulesNoIPS
+WriteUserWANReport $UserRulesNoIPS
 
-### ANALYZE USER TRAFFIC DESTINED FOR WAN NOT USING SYNC SEC
-WriteNetworkReport "Not Using Sync Sec"
+### ANALYZE USER TRAFFIC DESTINED FOR WAN NOT USING SYNC SEC ###
+WriteUserWANSectionHeader "--THE FOLLOWING RULES ARE NOT USING SYNC SEC--"
 $UserRulesNoSyncSec = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.SourceSecurityHeartbeat -Eq "Disable" -AND $_.UserPolicy.DestinationZones.Zone -Eq "WAN"} |
 Select-Object -Property Name, Status,
 @{label="UserPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="SourceHB";expression={$($_.UserPolicy.SourceSecurityHeartbeat)}},
 @{label="SourceHB_Perm";expression={$($_.UserPolicy.MinimumSourceHBPermitted)}}
-WriteUserReport $UserRulesNoSyncSec
+WriteUserWANReport $UserRulesNoSyncSec
 
-### ANALYZE USER TRAFFIC DESTINED FOR DMZ MISSING LOGGING
-WriteUserReport "Not Logging On"
+#########
+# DMZ
+# USER
+# RULE 
+# TYPE 
+#########
+
+### METHOD TO WRITE USER DMZ RESULTS FILE FUNCTION ###
+$UserDMZAnalyzerResults= "C:\SFOS_Analyzer\UserDMZRuleResults.txt"
+function WriteUserDMZReport ($results)
+{
+($results | Format-List | Out-String) | Out-File -Filepath $UserDMZAnalyzerResults -Append
+}
+
+### METHOD TO WRITE USER DMZ RESULTS SECTION BREAKS ###
+function WriteUserDMZSectionHeader ($text)
+{
+$text | Out-File -FilePath $UserDMZAnalyzerResults -Append
+}
+
+### ANALYZE USER TRAFFIC DESTINED FOR DMZ MISSING LOGGING ###
+WriteUserDMZSectionHeader "--THE FOLLOWING RULES ARE NOT LOGGING--"
 $UserRulesNotLoggedDMZ = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.LogTraffic -Eq "Disable" -AND $_.UserPolicy.DestinationZones.Zone -Eq "DMZ"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="LoggingStatus";expression={$($_.UserPolicy.LogTraffic)}}
-WriteUserReport $UserRulesNotLoggedDMZ
+WriteUserDMZReport $UserRulesNotLoggedDMZ
 
-### ANALYZE USER TRAFFIC DESTINED FOR DMZ NOT FILTERING PORTS
-WriteUserReport "Not Filtering Ports On"
+### ANALYZE USER TRAFFIC DESTINED FOR DMZ NOT FILTERING PORTS ###
+WriteUserDMZSectionHeader "--THE FOLLOWING RULES ARE NOT FILTERING PORTS--"
 $UserRulesNoPortFilterDMZ = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.Services -Eq " " -AND $_.UserPolicy.DestinationZones.Zone -Eq "DMZ"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="Services";expression={$($_.UserPolicy.Services)}}
-WriteUserReport $UserRulesNoPortFilterDMZ
+WriteUserDMZReport $UserRulesNoPortFilterDMZ
 
-### ANALYZE USER TRAFFIC DESTINED FOR DMZ NOT USING APPLICATION CONTROL
-WriteUserReport "Not Using App Control On"
+### ANALYZE USER TRAFFIC DESTINED FOR DMZ NOT USING APPLICATION CONTROL ###
+WriteUserDMZSectionHeader "--THE FOLLOWING RULES ARE NOT USING APP CONTROL-"
 $UserRulesNoAppCDMZ = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.Application -Eq "Disable" -AND $_.UserPolicy.DestinationZones.Zone -Eq "DMZ"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="AppControl";expression={$($_.UserPolicy.ApplicationControl)}}
-WriteUserReport $UserRulesNoAppCDMZ
+WriteUserDMZReport $UserRulesNoAppCDMZ
 
-## ANALYZE USER TRAFFIC DESTINED FOR DMZ NOT USING IPS
-WriteUserReport "Not Using IPS On"
+## ANALYZE USER TRAFFIC DESTINED FOR DMZ NOT USING IPS ###
+WriteUserDMZSectionHeader "--THE FOLLOWING RULES ARE NOT USING IPS--"
 $UserRulesNoIPSDMZ = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.IntrusionPrevention -Eq "Disable" -AND $_.UserPolicy.DestinationZones.Zone -Eq "DMZ"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="IPS";expression={$($_.UserPolicy.IntrusionPrevention)}}
-WriteUserReport $UserRulesNoIPSDMZ
+WriteUserDMZReport $UserRulesNoIPSDMZ
 
-### ANALYZE USER TRAFFIC DESTINED FOR DMZ NOT USING SYNC SEC
-WriteUserReport "Not Using Sync Sec"
+### ANALYZE USER TRAFFIC DESTINED FOR DMZ NOT USING SYNC SEC ###
+WriteUserDMZSectionHeader "--THE FOLLOWING RULES ARE NOT USING SYNC SEC--"
 $UserRulesNoSyncSecDMZ = $Config.Configuration.FirewallRule |
 Where-Object {($_.UserPolicy.SourceSecurityHeartbeat -Eq "Disable" -OR $_.UserPolicy.DestSecurityHeartbeat) -AND $_.UserPolicy.DestinationZones.Zone -Eq "DMZ"} |
 Select-Object -Property Name, Status,
@@ -320,46 +379,66 @@ Select-Object -Property Name, Status,
 @{label="SourceHB_Perm";expression={$($_.UserPolicy.MinimumSourceHBPermitted)}},
 @{label="DestHB";expression={$($_.UserPolicy.DestSecurityHeartbeat)}},
 @{label="DestHB_Perm";expression={$($_.UserPolicy.MinimumDestinationHBPermitted)}} 
-WriteUserReport $UserRulesNoSyncSecDMZ
+WriteUserDMZReport $UserRulesNoSyncSecDMZ
+
+#########
+# LAN
+# USER
+# RULE 
+# TYPE 
+#########
+
+## METHOD TO WRITE USER LAN RESULTS FILE FUNCTION ###
+$UserLANAnalyzerResults= "C:\SFOS_Analyzer\UserLANRuleResults.txt"
+function WriteUserLANReport ($results)
+{
+($results | Format-List | Out-String) | Out-File -Filepath $UserLANAnalyzerResults -Append
+}
+
+### METHOD TO WRITE USER LAN RESULTS SECTION BREAKS ###
+function WriteUserLANSectionHeader ($text)
+{
+$text | Out-File -FilePath $UserLANAnalyzerResults -Append
+}
 
 ### ANALYZE USER TRAFFIC DESTINED FOR LAN MISSING LOGGING
-WriteUserReport "Not Logging On"
+WriteUserLANSectionHeader "--THE FOLLOWING RULES ARE NOT LOGGING--"
 $UserRulesNotLoggedLAN = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.LogTraffic -Eq "Disable" -AND $_.UserPolicy.DestinationZones.Zone -Eq "LAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="LoggingStatus";expression={$($_.UserPolicy.LogTraffic)}}
-WriteUserReport $UserRulesNotLoggedLAN
+WriteUserLANReport $UserRulesNotLoggedLAN
 
 ### ANALYZE USER TRAFFIC DESTINED FOR LAN NOT FILTERING PORTS
-WriteUserReport "Not Filtering Ports On"
+WriteUserLANSectionHeader "--THE FOLLOWING RULES ARE NOT FILTERING PORTS--"
 $UserRulesNoPortFilterLAN = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.Services -Eq " " -AND $_.UserPolicy.DestinationZones.Zone -Eq "LAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="Services";expression={$($_.UserPolicy.Services)}}
-WriteUserReport $UserRulesNoPortFilterLAN
+WriteUserLANReport $UserRulesNoPortFilterLAN
 
 ### ANALYZE USER TRAFFIC DESTINED FOR LAN NOT USING APPLICATION CONTROL
-WriteUserReport "Not Using App Control On"
+WriteUserLANSectionHeader "--THE FOLLOWING RULES ARE NOT USING APP CONTROL--"
 $UserRulesNoAppCLAN = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.Application -Eq "Disable" -AND $_.UserPolicy.DestinationZones.Zone -Eq "LAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="AppControl";expression={$($_.UserPolicy.ApplicationControl)}}
-WriteUserReport $UserRulesNoAppCLAN
+WriteUserLANReport $UserRulesNoAppCLAN
 
-## ANALYZE USER TRAFFIC DESTINED FOR LAN NOT USING IPS
-WriteUserReport "Not Using IPS On"
+### ANALYZE USER TRAFFIC DESTINED FOR LAN NOT USING IPS
+WriteUserLANSectionHeader "--THE FOLLOWING RULES ARE NOT USING IPS--"
 $UserRulesNoIPSLAN = $Config.Configuration.FirewallRule |
 Where-Object {$_.UserPolicy.IntrusionPrevention -Eq "Disable" -AND $_.UserPolicy.DestinationZones.Zone -Eq "LAN"} |
 Select-Object -Property Name, Status,
 @{label="NetworkPolicy";expression={$($_.UserPolicy.Action)}}, 
 @{label="IPS";expression={$($_.UserPolicy.IntrusionPrevention)}}
-WriteUserReport $UserRulesNoIPSLAN
+WriteUserLANReport $UserRulesNoIPSLAN
 
 ### ANALYZE USER TRAFFIC DESTINED FOR LAN NOT USING SYNC SEC
-WriteUserReport "Not Using Sync Sec"
+WriteUserLANSectionHeader "--THE FOLLOWING RULES ARE NOT USING SYNC SEC--"
 $UserRulesNoSyncSecLAN = $Config.Configuration.FirewallRule |
 Where-Object {($_.UserPolicy.SourceSecurityHeartbeat -Eq "Disable" -OR $_.UserPolicy.DestSecurityHeartbeat) -AND $_.UserPolicy.DestinationZones.Zone -Eq "LAN"} |
 Select-Object -Property Name, Status,
@@ -368,30 +447,50 @@ Select-Object -Property Name, Status,
 @{label="SourceHB_Perm";expression={$($_.UserPolicy.MinimumSourceHBPermitted)}},
 @{label="DestHB";expression={$($_.UserPolicy.DestSecurityHeartbeat)}},
 @{label="DestHB_Perm";expression={$($_.UserPolicy.MinimumDestinationHBPermitted)}} 
-WriteUserReport $UserRulesNoSyncSecLAN
+WriteUserLANReport $UserRulesNoSyncSecLAN
 
-###### HTTP RULE TYPE ###### -- NEEDS FINISHED
+#########
+# HTTP
+# RULE 
+# TYPE 
+#########
 
-### WRITE TO HTTP RESULTS FILE FUNCTION -- NEEDS FINISHED
+### METHOD TO WRITE HTTP RESULTS FILE FUNCTION ###
 $HTTPAnalyzerResults= "C:\SFOS_Analyzer\HTTPRuleResults.txt"
-function WriteUserReport ($message)
+function WriteHTTPReport ($results)
 {
-$message >> $HTTPAnalyzerResults
+($results | Format-List | Out-String) | Out-File -Filepath $HTTPAnalyzerResults -Append
 }
 
-### CHECK NAT RULES -- NEEDS FINISHED
-$NATRuleList = $Config.Configuration.NATRule  | Select-Object -Property Name, Description, Status, LinkedFirewallRule, TranslatedDestination, TranslatedService,
-@{label="OutboundInterface";expression={$($_.OutboundInterfaces.Interface)}},
-OverrideInterfaceNATPolicy, TranslatedSource
-
-### WRITE TO SSL/TLS RESULTS FILE FUNCTION -- NEEDS FINISHED
-$TLSAnalyzerResults= "C:\SFOS_Analyzer\UserRuleResults.txt"
-function WriteUserReport ($message)
+### METHOD TO WRITE HTTP RESULTS SECTION BREAKS ###
+function WriteHTTPSectionHeader ($text)
 {
-$message >> $TLSAnalyzerResults
+$text | Out-File -FilePath $HTTPAnalyzerResults -Append
 }
 
-### CHECK TLS/SSL RULES -- NEEDS FINISHED
-$TLSRuleList = $Config.Configuration.NATRule  | Select-Object -Property Name, Description, Status, LinkedFirewallRule, TranslatedDestination, TranslatedService,
-@{label="OutboundInterface";expression={$($_.OutboundInterfaces.Interface)}},
-OverrideInterfaceNATPolicy, TranslatedSource
+### ANALYZE WAF RULE RUNNING ON INSECURE PORT ###
+WriteHTTPSectionHeader "--THE FOLLOWING RULES ARE RUNNING ON AN INSECURE PORT--"
+$HTTPProtectionResults = $Config.Configuration.FirewallRule |
+Where-Object {$_.HTTPBasedPolicy.HTTPS -Eq "Disable"} |
+Select-Object -Property Name, Status,
+@{label="HTTPS";expression={$($_.HTTPBasedPolicy.HTTPS)}}, 
+@{label="ListeningPort";expression={$($_.HTTPBasedPolicy.ListenPort)}},
+@{label="Domains";expression={$($_.HTTPBasedPolicy.Domains.Domain)}},
+@{label="Redirected";expression={$($_.HTTPBasedPolicy.RedirectHTTP)}}
+WriteHTTPReport $HTTPProtectionResults
+
+### ANALYZE WAF RULE NOT USING PROTOCOL SECURITY ####
+WriteHTTPSectionHeader "--THE FOLLOWING RULES ARE MISSING A SECURITY TEMPLATE--"
+$HTTPProtectionResults = $Config.Configuration.FirewallRule |
+Where-Object {$_.HTTPBasedPolicy.ProtocolSecurity -Eq "None"} | 
+Select-Object -Property Name, Status,
+@{label="Protection";expression={$($_.HTTPBasedPolicy.ProtocolSecurity)}} 
+WriteHTTPReport $HTTPProtectionResults
+
+### ANALYZE WAF RULE NOT USING IPS ###
+WriteHTTPSectionHeader "--THE FOLLOWING RULES ARE MISSING AN IPS POLICY--"
+$HTTPProtectionResults = $Config.Configuration.FirewallRule |
+Where-Object {$_.HTTPBasedPolicy.IntrusionPrevention -Eq "None"} |
+Select-Object -Property Name, Status,
+@{label="IPS";expression={$($_.HTTPBasedPolicy.IntrusionPrevention)}}
+WriteHTTPReport $HTTPProtectionResults
