@@ -544,3 +544,28 @@ Where-Object {$_.ManagementType -Ne "central"} |
 Select-Object @{label="ManagementType";expression={$($_.ManagementType)}}
 WriteAdminReport $CentralManagement
 
+#########
+# SFOS
+# AUTHENTICATION
+# SETTINGS
+#########
+
+### METHOD TO WRITE WAN NETWORK RESULTS FILE FUNCTION ###
+$AuthSettings= "C:\SFOS_Analyzer\AuthSettingsResults.txt"
+function WriteAuthReport ($results)
+{
+($results | Format-List | Out-String) | Out-File -Filepath $AuthSettings -Append
+}
+
+### METHOD TO WRITE WAN NETWORK RESULTS SECTION BREAKS ###
+function WriteAuthHeader ($text)
+{
+$text | Out-File -FilePath $AuthSettings -Append
+}
+
+##### CHECK AUTHENTICATION SERVERS ####
+WriteAuthHeader "--YOUR SFOS IS USING INSECURE AUTHENTICATION SERVERS--"
+$AuthenticationSettings = $Config.Configuration.AuthenticationServer.ActiveDirectory | 
+Where-Object {$_.Port -Eq "389"} |
+Select-Object @{label="Port";expression={$($_.Port)}}
+WriteAuthReport $AuthenticationSettings
