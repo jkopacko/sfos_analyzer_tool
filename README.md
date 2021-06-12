@@ -27,3 +27,16 @@ Constantly grooming your firewall policies can be troublesome, especially for la
 **NOTE: I hate seeing the console throwing code**
 
 ### Interpreting The Results
+
+| Log Name | Description |
+| --- | --- |
+| AdminSettingsResults | Reviews Login Settings, Hotfix & Central Mgmt Status |
+| AuthSettingsResults | Review Active Directory Auth Port |
+| DMZRuleResults | Reviews network rules destined for the DMZ Zone |
+| HTTPRuleResults | Reviews WAF rules |
+| LANRuleResults | Reviews network rules destined for the LAN Zone |
+| UserDMZRuleResults | Reviews user rules destined for the DMZ Zone |
+| UserLANResultResults | Reviews user rules destined for the WAN Zone |
+| WANRuleResults | Review network rules destined for the WAN Zone |
+
+**NOTE: These are all .txt files**
