@@ -32,11 +32,13 @@ Constantly grooming your firewall policies can be troublesome, especially for la
 | --- | --- |
 | AdminSettingsResults | Reviews Login Settings, Hotfix & Central Mgmt Status |
 | AuthSettingsResults | Review Active Directory Auth Port |
-| DMZRuleResults | Reviews network rules destined for the DMZ Zone |
 | HTTPRuleResults | Reviews WAF rules |
-| LANRuleResults | Reviews network rules destined for the LAN Zone |
+| NetworkDMZRuleResults | Reviews network rules destined for the DMZ Zone |
+| NetworkLANRuleResults | Reviews network rules destined for the LAN Zone |
+| NetworkWANRuleResults | Review network rules destined for the WAN Zone |
 | UserDMZRuleResults | Reviews user rules destined for the DMZ Zone |
-| UserLANResultResults | Reviews user rules destined for the WAN Zone |
-| WANRuleResults | Review network rules destined for the WAN Zone |
+| UserLANRuleResults | Reviews user rules destined for the LAN Zone |
+| UserWANResults | Reviews user rules destined for the WAN Zone |
+
 
 **NOTE: These are all .txt files**
