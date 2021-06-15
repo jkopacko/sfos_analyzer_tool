@@ -38,7 +38,7 @@ Constantly grooming your firewall policies can be troublesome, especially for la
 | NetworkWANRuleResults | Review network rules destined for the WAN Zone |
 | UserDMZRuleResults | Reviews user rules destined for the DMZ Zone |
 | UserLANRuleResults | Reviews user rules destined for the LAN Zone |
-| UserWANResults | Reviews user rules destined for the WAN Zone |
+| UserWANRuleResults | Reviews user rules destined for the WAN Zone |
 
 
 **NOTE: These are all .txt files**
